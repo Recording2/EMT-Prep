@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EMS Clinical Command</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #080a0f; color: #e0e6ed; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* SIDEBAR: THE LIVE PCR & MONITOR */
+        nav { width: 340px; background: #12161f; border-right: 2px solid #1f2937; display: flex; flex-direction: column; }
+        
+        .nav-header { padding: 20px; border-bottom: 2px solid #e74c3c; }
+        
+        /* VITALS MONITOR STYLING */
+        .vitals-monitor { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #000; padding: 15px; border-bottom: 1px solid #1f2937; font-family: 'Courier New', Courier, monospace; }
+        .vital-box { text-align: center; border: 1px solid #2c3e50; padding: 5px; border-radius: 4px; }
+        .vital-label { font-size: 0.65rem; color: #3498db; display: block; text-transform: uppercase; visibility: hidden; }
+        .vital-value { font-size: 1.1rem; color: #2ecc71; font-weight: bold; }
+        .revealed { visibility: visible !important; animation: fadeIn 0.5s; }
+
+        /* PCR LOG CONTAINERS */
+        #pcr-log { flex-grow: 1; overflow-y: auto; padding: 15px; background: #0b0e14; display: flex; flex-direction: column; }
+        
+        .log-entry { 
+            background: #1c222d; 
+            padding: 12px; 
+            border-radius: 6px; 
+            margin-bottom: 12px; 
+            border-left: 4px solid #e74c3c; 
+            font-size: 0.85rem; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            animation: logIn 0.3s ease-out;
+            line-height: 1.4;
+        }
+        
+        .log-header { 
+            font-weight: bold; 
+            color: #e74c3c; 
+            display: block; 
+            margin-bottom: 6px; 
+            font-size: 0.75rem; 
+            text-transform: uppercase; 
+            border-bottom: 1px solid rgba(231, 76, 60, 0.2);
+            padding-bottom: 4px;
+            letter-spacing: 1px;
+        }
+
+        @keyframes logIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* FLASHING NOTIFICATION ANIMATION */
+        .flash-active { animation: pulse-alert 1s infinite; border: 2px solid white !important; }
+        @keyframes pulse-alert {
+            0% { background-color: #3498db; }
+            50% { background-color: #e74c3c; }
+            100% { background-color: #3498db; }
+        }
+
+        /* MAIN MONITOR & LAYOUT */
+        .main-view { flex-grow: 1; display: flex; flex-direction: column; padding: 0; position: relative; }
+        .view-content { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .top-nav { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1c222d; border-bottom: 2px solid #3498db; }
+        .home-link { color: #3498db; text-decoration: none; font-weight: bold; font-size: 0.9rem; border: 1px solid #3498db; padding: 5px 12px; border-radius: 4px; transition: 0.3s; }
+        .home-link:hover { background: #3498db; color: white; }
+
+        .dispatch-box { 
+            background: #000; border: 1px solid #2ecc71; padding: 18px; margin-bottom: 20px; border-radius: 8px; color: #2ecc71; 
+            font-family: 'Courier New', Courier, monospace; font-size: 1.1rem; width: calc(100% - 300px);
+            box-shadow: inset 0 0 10px rgba(46, 204, 113, 0.2);
+        }
+
+        .monitor { flex-grow: 1; background: #151921; border-radius: 15px; border: 3px solid #1f2937; display: flex; flex-direction: column; overflow: hidden; }
+        .screen-top { padding: 20px; border-bottom: 1px solid #2c3e50; background: #1c222d; flex-shrink: 0; }
+        
+        .screen-mid { 
+            flex-grow: 1; padding: 20px; text-align: center; overflow-y: scroll; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* 🟦 BLUE INDUSTRIAL SCROLLBAR 🟦 */
+        .screen-mid::-webkit-scrollbar { width: 14px; }
+        .screen-mid::-webkit-scrollbar-track { background: rgba(11, 14, 20, 0.5); border-left: 1px solid #1f2937; }
+        .screen-mid::-webkit-scrollbar-thumb {
+            background-color: rgba(52, 152, 219, 0.4); border-radius: 4px; border: 2px solid #151921;
+            background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.1) 75%, transparent 75%, transparent);
+            background-size: 8px 8px; box-shadow: inset 1px 1px 2px rgba(255,255,255,0.2), inset -1px -1px 2px rgba(0,0,0,0.5);
+        }
+        .screen-mid::-webkit-scrollbar-thumb:hover { background-color: rgba(52, 152, 219, 0.9); }
+
+        .screen-bottom { padding: 20px; background: #0b0e14; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex-shrink: 0; }
+
+        button.action-btn { padding: 15px; background: #2c3e50; color: white; border: 1px solid #3e5871; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button.action-btn:hover { background: #3498db; border-color: #fff; }
+        button.cat-btn { width: 100%; padding: 10px; margin-top: 5px; background: #1c222d; color: white; border: 1px solid #e74c3c; cursor: pointer; border-radius: 4px; }
+        button.cat-btn:hover { background: #e74c3c; }
+
+        /* FINDINGS DROPDOWN */
+        .findings-dropdown { position: absolute; top: 80px; right: 20px; z-index: 1000; width: 250px; }
+        #findings-toggle { width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: all 0.3s; }
+        #findings-content { display: none; background: #1c222d; border: 1px solid #3498db; border-top: none; max-height: 300px; overflow-y: auto; padding: 10px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+        .finding-item { margin-bottom: 8px; padding: 8px; border-left: 3px solid #3498db; background: #151921; font-size: 0.85rem; }
+
+        .aar-card { background: #1c222d; border: 2px solid #3498db; border-radius: 10px; padding: 25px; text-align: left; max-width: 700px; width: 90%; margin: 30px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .aar-section { margin-bottom: 15px; border-bottom: 1px solid #2c3e50; padding-bottom: 10px; }
+        .aar-fail { color: #ff3333; font-weight: bold; border-left: 3px solid #ff3333; padding-left: 10px; margin-top: 5px; }
+        #feedback { min-height: 25px; margin-bottom: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="nav-header">
+            <h3 style="margin:0">🚑 EMS Command</h3>
+            <button class="cat-btn" style="background:#3498db; border-color: #fff;" onclick="shuffleCall()">🎲 Random Call</button>
+            <div style="margin-top:10px">
+                <button class="cat-btn" onclick="filterCategory('Trauma')">Trauma</button>
+                <button class="cat-btn" onclick="filterCategory('Cardiac')">Cardiac</button>
+            </div>
+        </div>
+
+        <div class="vitals-monitor">
+            <div class="vital-box"><span class="vital-label" id="lbl-bp">BP</span><span class="vital-value" id="v-bp">--/--</span></div>
+            <div class="vital-box"><span class="vital-label" id="lbl-hr">HR</span><span class="vital-value" id="v-hr">--</span></div>
+            <div class="vital-box"><span class="vital-label" id="lbl-rr">RR</span><span class="vital-value" id="v-rr">--</span></div>
+            <div class="vital-box"><span class="vital-label" id="lbl-spo2">SpO2</span><span class="vital-value" id="v-spo2">--%</span></div>
+            <div class="vital-box" style="grid-column: span 2;"><span class="vital-label" id="lbl-bgl">BGL</span><span class="vital-value" id="v-bgl">--- mg/dL</span></div>
+        </div>
+
+        <div id="pcr-log">
+            <div style="color: #444; text-align: center; margin-top: 50px;">Waiting for dispatch...</div>
+        </div>
+    </nav>
+
+    <div class="main-view">
+        <div class="top-nav">
+            <a href="hub.html" class="home-link">🏠 EXIT TO HUB</a>
+            <div style="font-size: 0.8rem; opacity: 0.6; font-family: monospace;">EMS SIMULATOR v2.5 | CAD-704</div>
+        </div>
+
+        <div class="view-content">
+            <div class="findings-dropdown">
+                <button id="findings-toggle" onclick="toggleFindings()">🔍 Clinical Findings (0)</button>
+                <div id="findings-content">
+                    <div id="findings-container"></div>
+                </div>
+            </div>
+
+            <div class="dispatch-box" id="dispatch-display">📟 SYSTEM READY...</div>
+
+            <div class="monitor">
+                <div class="screen-top">
+                    <h2 id="case-title" style="margin:0">Clinical Simulator</h2>
+                    <div id="phase-label" style="color: #3498db; font-size: 0.9rem; margin-top:5px;"></div>
+                </div>
+                
+                <div class="screen-mid" id="main-content-area">
+                    <div id="feedback"></div>
+                    <div id="instr" style="font-size: 1.2rem; line-height: 1.6;"></div>
+                </div>
+
+                <div id="button-area" class="screen-bottom"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="scenarios.js"></script>
+
+    <script>
+    let currentScenario = null;
+    let stepIndex = 0;
+    let checksFound = []; 
+    let findingsCount = 0;
+    let scenarioErrors = []; 
+
+    function toggleFindings() {
+        const content = document.getElementById('findings-content');
+        const btn = document.getElementById('findings-toggle');
+        content.style.display = content.style.display === 'block' ? 'none' : 'block';
+        if (content.style.display === 'block') btn.classList.remove('flash-active');
+    }
+
+    function filterCategory(cat) {
+        const options = scenarioBank.filter(s => s.category === cat);
+        if (options.length > 0) startScenario(options[Math.floor(Math.random() * options.length)]);
+    }
+
+    function shuffleCall() {
+        startScenario(scenarioBank[Math.floor(Math.random() * scenarioBank.length)]);
+    }
+
+    function startScenario(scenario) {
+        currentScenario = scenario;
+        stepIndex = 0;
+        findingsCount = 0;
+        scenarioErrors = [];
+        
+        document.getElementById('pcr-log').innerHTML = "";
+        document.getElementById('findings-container').innerHTML = "";
+        document.getElementById('findings-toggle').innerText = `🔍 Clinical Findings (0)`;
+        document.getElementById('findings-toggle').classList.remove('flash-active');
+        document.getElementById('case-title').innerText = currentScenario.title;
+        document.getElementById('dispatch-display').innerText = "📟 DISPATCH: " + currentScenario.dispatch;
+        
+        ['bp', 'hr', 'rr', 'spo2', 'bgl'].forEach(k => {
+            document.getElementById('v-' + k).innerText = k === 'bp' ? '--/--' : (k === 'bgl' ? '--- mg/dL' : '--');
+            document.getElementById('lbl-' + k).classList.remove('revealed');
+        });
+
+        addToPCR("DISPATCH", currentScenario.dispatch);
+        loadStep();
+    }
+
+    function loadStep() {
+        const step = currentScenario.steps[stepIndex];
+        if (!step) { showAAR(); return; }
+        checksFound = []; 
+        document.getElementById('phase-label').innerText = `STEP: ${step.name}`;
+        document.getElementById('instr').innerHTML = step.instr; 
+        document.getElementById('feedback').innerText = "";
+        renderButtons(step);
+    }
+
+    function renderButtons(step) {
+        const area = document.getElementById('button-area');
+        area.innerHTML = "";
+        step.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = "action-btn";
+            if (checksFound.includes(choice.t)) {
+                btn.style.opacity = "0.5";
+                btn.innerHTML = "✅ " + choice.t;
+                btn.disabled = true; 
+            } else { btn.innerHTML = choice.t; }
+            btn.onclick = () => handleChoice(choice, step);
+            area.appendChild(btn);
+        });
+    }
+
+    function handleChoice(choice, step) {
+        const feedbackEl = document.getElementById('feedback');
+        const findingsBtn = document.getElementById('findings-toggle');
+
+        if (choice.criticalFail) {
+            scenarioErrors.push({ step: step.name, msg: choice.f, critical: true });
+            showAAR(true);
+            return; 
+        }
+
+        if (choice.c) {
+            feedbackEl.style.color = "#2ecc71";
+            feedbackEl.innerHTML = choice.f;
+            addToPCR(step.name, choice.f);
+
+            if (choice.vitals) {
+                for (const [key, value] of Object.entries(choice.vitals)) {
+                    document.getElementById('v-' + key).innerText = value;
+                    document.getElementById('lbl-' + key).classList.add('revealed');
+                }
+            }
+
+            if (choice.finding) {
+                findingsCount++;
+                const container = document.getElementById('findings-container');
+                const item = document.createElement('div');
+                item.className = "finding-item";
+                item.innerHTML = `<strong>${choice.t}:</strong> ${choice.finding}`;
+                container.prepend(item);
+                findingsBtn.innerText = `🔍 Clinical Findings (${findingsCount})`;
+                findingsBtn.classList.add('flash-active');
+            }
+
+            if (step.requiredChecks) {
+                if (!checksFound.includes(choice.t)) checksFound.push(choice.t);
+                renderButtons(step);
+                if (step.requiredChecks.every(item => checksFound.includes(item))) {
+                    feedbackEl.innerHTML += "<br><b style='color:#3498db'>[PHASE COMPLETE]</b>";
+                    stepIndex++;
+                    setTimeout(loadStep, 1000);
+                }
+            } else {
+                stepIndex++;
+                setTimeout(loadStep, 1000);
+            }
+        } else {
+            feedbackEl.style.color = "#e74c3c";
+            feedbackEl.innerHTML = choice.f;
+            scenarioErrors.push({ step: step.name, msg: choice.f, critical: false });
+        }
+    }
+
+    function showAAR(isCritical = false) {
+        const mid = document.getElementById('main-content-area');
+        const btnArea = document.getElementById('button-area');
+        const findings = document.getElementById('findings-container').innerHTML;
+        document.getElementById('phase-label').innerText = "AFTER ACTION REPORT";
+        btnArea.innerHTML = `<button class="action-btn" style="background:#e74c3c; grid-column: span 2;" onclick="location.reload()">RESTART SIMULATION</button>`;
+        let errorList = scenarioErrors.map(e => `<div class="aar-fail"><strong>[${e.step}]</strong>: ${e.msg}</div>`).join('');
+        mid.innerHTML = `<div class="aar-card"><div class="aar-section"><h2>${isCritical ? '🛑 UNSATISFACTORY' : '✅ MISSION COMPLETE'}</h2><p><strong>Dispatch:</strong> ${currentScenario.dispatch}</p></div><div class="aar-section"><h3>📊 Clinical Discoveries</h3>${findings || 'No specific findings documented.'}</div><div class="aar-section"><h3>📝 Quality Improvement (Errors)</h3>${errorList || '<p style="color:#2ecc71">No protocol deviations. Professional work.</p>'}</div></div>`;
+    }
+
+    function addToPCR(stepName, text) {
+        const log = document.getElementById('pcr-log');
+        const entry = document.createElement('div');
+        entry.className = "log-entry";
+        entry.innerHTML = `<span class="log-header">${stepName}</span><div class="log-text">${text}</div>`;
+        log.prepend(entry);
+    }
+</script>
+</body>
+</html>

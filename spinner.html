@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMT Pharmacology Study Tool</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --emt-yellow: #ffcc00;
+            --emt-blue: #007bff;
+            --text-main: #e0e0e0;
+            --danger: #ff4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .nav-header {
+            width: 100%;
+            max-width: 650px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .wheel-container { position: relative; margin: 20px 0; }
+        canvas { border: 5px solid var(--emt-yellow); border-radius: 50%; box-shadow: 0 0 20px rgba(255, 204, 0, 0.2); }
+        #pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid var(--danger); z-index: 10; }
+
+        .controls { text-align: center; margin-bottom: 20px; }
+        
+        button { 
+            background: var(--emt-blue); 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            font-size: 0.9rem; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            cursor: pointer; 
+            border-radius: 4px; 
+            transition: 0.2s; 
+        }
+        
+        button:hover { filter: brightness(1.2); }
+        button:disabled { background: #444; cursor: not-allowed; }
+
+        .home-btn { 
+            background: transparent; 
+            border: 1px solid var(--emt-yellow); 
+            color: var(--emt-yellow); 
+            padding: 8px 16px;
+        }
+
+        #study-area { width: 100%; max-width: 650px; display: none; background: var(--card-bg); padding: 25px; border-radius: 8px; border-left: 5px solid var(--emt-yellow); box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-top: 20px; }
+        
+        .mode-selection { display: flex; gap: 10px; margin-top: 15px; }
+        .mode-btn { flex: 1; background: #333; }
+        .mode-btn.active { background: var(--emt-yellow) !important; color: black !important; }
+
+        #flashcard { background: #252525; border: 2px solid var(--emt-blue); border-radius: 10px; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; text-align: center; padding: 25px; transition: 0.3s; margin-top: 20px; }
+        
+        .data-row { margin: 15px 0; border-bottom: 1px solid #333; padding-bottom: 8px; }
+        .label { color: var(--emt-yellow); font-weight: bold; font-size: 1.75rem; text-transform: uppercase; letter-spacing: 1px; }
+        input { width: 100%; background: #000; border: 1px solid #444; color: white; padding: 10px; margin-top: 5px; box-sizing: border-box; border-radius: 4px; }
+        
+        #score-display { font-weight: bold; margin-top: 15px; text-align: center; color: var(--emt-yellow); }
+        
+        .action-footer { 
+            margin-top: 25px; 
+            display: flex; 
+            justify-content: center; 
+            gap: 15px; 
+            border-top: 1px solid #444; 
+            padding-top: 20px; 
+        }
+        .secondary-btn { background: #444; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <div class="nav-header">
+        <button class="home-btn" onclick="goToHome()">🏠 Return to Hub</button>
+    </div>
+
+    <h1>PHARMACOLOGY SELECTOR</h1>
+
+    <div class="wheel-container">
+        <div id="pointer"></div>
+        <canvas id="canvas" width="450" height="450"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="spinBtn" onclick="spinWheel()">Spin for Medication</button>
+    </div>
+
+    <div id="study-area">
+        <h2 id="drugName" style="color: var(--emt-yellow); margin-top:0; text-align: center; letter-spacing: 2px;"></h2>
+        
+        <div class="mode-selection">
+            <button id="btn-learn" class="mode-btn" onclick="setMode('learn')">Learn</button>
+            <button id="btn-test" class="mode-btn" onclick="setMode('test')">Test</button>
+        </div>
+
+        <div id="display-fields"></div>
+        <div id="score-display"></div>
+
+        <div class="action-footer">
+            <button class="secondary-btn" onclick="resetAndSpin()">Spin New Drug</button>
+            <button class="secondary-btn" onclick="goToHome()">Back to Hub</button>
+        </div>
+    </div>
+
+<script>
+    const drugData = [
+        { name: "Acetaminophen", class: "Analgesic, antipyretic", description: "Reduces pain and fever with little effect on platelet function", indications: "Pain, fever", contraindications: "Hypersensitivity, liver failure, children under 3 years old", precautions: "known liver disease, children under 12 with arthritic conditions, alcoholism, malnutrition, thrombocytopenia (low platelet count)", sideEffects: "liver damage in large doses, rash, angioedema", dose: "Adult: 500-1000mg PO; Ped: 15mg/kg PO", ImportantInfo: "None" },
+        { name: "Activated Charcoal", class: "Adsorbent", description: "Binds to toxins in the GI tract to prevent absorption", indications: "Acute ingested poisoning", contraindications: "Inability to control airway, altered LOC, ingestion of cyanide, mineral acids, caustic alkalis, organic solvents, iron, ethanol, methanol", precautions: "Administer after emesis unless emesis is contraindicated", sideEffects: "Constipation, diarrhea, temporary darkening of the stool, vomiting", dose: "Adult: 50gm PO; Ped: 1g/kg PO, max 25gm dose", ImportantInfo: "None" },
+        { name: "Albuterol", class: "Bronchodilator, Beta 2 agonist", description: "Specific synthetic sympathomimetic that causes bronchodilation, but less cardiac effect and reduces mucus secretion, pulmonary capillary leaking, and edema in the lungs during allergic reaction", indications: "Reactive airway disease exacerbation (asthma, COPD), allergic reaction with wheezing, bronchospasm", contraindications: "Hypersensitivity", precautions: "Vital signs and breath sounds must be monitored; use caution with eldery, cardiac, or hypertensive patients, HR>150bmp in adults, HR>200bpm in children, significant cardiac history", sideEffects: "Tachycardia, anxiety/nervousness, nausea/vomiting, cough, tremors, dizziness", dose: "Adult: 2.5-5.0mg neb; Ped: 1.25-2.5mg neb", ImportantInfo: "Patient must have a doctor's order with a prescription" },
+        { name: "Aspirin", class: "Platelet inhibitor, NSAID", description: "Inhibits platelet aggregation to prevent further clotting", indications: "Chest pain (cardiac etiology)", contraindications: "Hypersensitivity, active bleeding ulcer, asthma", precautions: "NSAID allergies, bleeding disorders", sideEffects: "Nausea, heartburn, bleeding", dose: "Adult: 324mg (4x 81mg tabs) PO", ImportantInfo: "None" },
+        { name: "Atropine", class: "Anticholinergic, antidote", description: "Blocks organophosphate effects (SLUDGE-M)", indications: "Organophosphate poisoning", contraindications: "None in emergency", precautions: "Tachycardia", sideEffects: "Dry mouth, blurred vision, tachycardia", dose: "One auto-injector IM", ImportantInfo: "None" },
+        { name: "Diphenhydramine", class: "Antihistamine", description: "Blocks histamine release to reduce edema", indications: "Allergic reaction, anaphylaxis", contraindications: "Hypersensitivity, glaucoma", precautions: "Sedation", sideEffects: "Drowsiness, dry mouth", dose: "Adult: 25-50mg PO; Ped: 1mg/kg PO", ImportantInfo: "None" },
+        { name: "Epinephrine", class: "Sympathomimetic", description: "Increases HR and contractility; causes bronchodilation", indications: "Anaphylaxis", contraindications: "None in life-threat", precautions: "Cardiac history, hypertension", sideEffects: "Tachycardia, anxiety", dose: "Adult: 0.3-0.5mg IM; Ped: 0.15mg IM", ImportantInfo: "None" },
+        { name: "Glucagon", class: "Hormone, glycogenolytic agent", description: "Promotes conversion of glycogen stores in the liver into glucose to be released into the bloodstream", indications: "Hypoglycemia (after oral glucose is contraindicated)", contraindications: "Hypersensitivity", precautions: "Requires glycogen stores", sideEffects: "Headache, nausea, hypotension, irritation at the injection site", dose: "Adult: 1-2mg IM; Ped: 0.1mg/kg IM, may be repeated in 15 minutes", ImportantInfo: "None" },
+        { name: "Oral Glucose", class: "Carbohydrate", description: "Increases blood sugar level for a short period", indications: "Hypoglycemia, AMS", contraindications: "No gag reflex, inability to swallow", precautions: "Aspiration", sideEffects: "Nausea, vomiting", dose: "1 tube (15g) buccally", ImportantInfo: "None" },
+        { name: "Ibuprofen", class: "NSAID", description: "Analgesic/Antipyretic; inhibits platelet aggregation", indications: "Fever, minor/moderate pain", contraindications: "NSAID allergy, GI bleed, renal failure", precautions: "Bleeding history", sideEffects: "GI upset, nausea", dose: "Adult: 400-800mg PO; Ped: 10mg/kg PO", ImportantInfo: "None" },
+        { name: "Naloxone", class: "Narcotic antagonist", description: "Reverses narcotic-induced respiratory depression", indications: "Opiate overdose", contraindications: "Non-narcotic AMS", precautions: "Withdrawal, combativeness", sideEffects: "Sweating, tachycardia", dose: "Adult: 0.4-2mg IN; Ped: 0.1mg/kg IN", ImportantInfo: "None" },
+        { name: "Nitroglycerin", class: "Nitrate, vasodilator", description: "Decreases heart workload, increases circulation", indications: "Chest pain (Angina, MI)", contraindications: "SBP < 100, ED meds, head injury", precautions: "Monitor BP", sideEffects: "Headache, hypotension", dose: "0.4mg SL every 5 mins (max 3 doses)", ImportantInfo: "None" },
+        { name: "Nitrous Oxide", class: "Analgesic gas", description: "Non-flammable gas that inhibits NMDA receptors", indications: "Acute pain management", contraindications: "Bowel obstruction, pneumothorax", precautions: "Ventilate area", sideEffects: "Dizziness, nausea", dose: "50:50 mixture self-administered", ImportantInfo: "None" },
+        { name: "Oxygen", class: "Medical gas", description: "Improves respiratory efficiency", indications: "Hypoxia, respiratory distress", contraindications: "None in emergency", precautions: "Non-hypoxic COPD", sideEffects: "Dry nose/mouth", dose: "NC: 1-6L; NRB: 10-15L; BVM: 15L", ImportantInfo: "None" },
+        { name: "Oxymetazoline", class: "Vasoconstrictor", description: "Shrinks swollen nasal membranes", indications: "Epistaxis, nasal intubation", contraindications: "Significant hypertension", precautions: "None", sideEffects: "Sneezing, dryness", dose: "Adult: 2 sprays; Ped: 1-2 sprays", ImportantInfo: "None" },
+        { name: "Pralidoxime", class: "Cholinesterase reactivator", description: "Restores neuromuscular transmission", indications: "Organophosphate poisoning", contraindications: "Hypersensitivity", precautions: "Rapid admin muscle rigidity", sideEffects: "Blurred vision, headache", dose: "One auto-injector IM", ImportantInfo: "None" }
+    ];
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spinBtn');
+    let currentRotation = 0;
+    let selectedDrug = null;
+    let currentCardIndex = 0;
+    const categories = ['class', 'description', 'indications', 'contraindications', 'precautions', 'sideEffects', 'dose', 'ImportantInfo'];
+
+    function goToHome() {
+        window.location.href = "hub.html"; 
+    }
+
+    function drawWheel() {
+        const segments = drugData.length;
+        const angle = 2 * Math.PI / segments;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drugData.forEach((drug, i) => {
+            ctx.beginPath();
+            ctx.fillStyle = i % 2 === 0 ? "#1a1a1a" : "#2a2a2a";
+            ctx.moveTo(225, 225);
+            ctx.arc(225, 225, 220, i * angle, (i + 1) * angle);
+            ctx.fill();
+            ctx.strokeStyle = "#444";
+            ctx.stroke();
+            ctx.save();
+            ctx.translate(225, 225);
+            ctx.rotate(i * angle + angle / 2);
+            ctx.fillStyle = "white";
+            ctx.font = "bold 14px Arial"; // Increased font size for better readability
+            ctx.fillText(drug.name, 85, 5); // Slightly adjusted offset for larger text
+            ctx.restore();
+        });
+    }
+
+    function spinWheel() {
+        const extraSpins = 5 + Math.random() * 5;
+        currentRotation += extraSpins * 360;
+        canvas.style.transition = "transform 4s cubic-bezier(0.15, 0, 0.15, 1)";
+        canvas.style.transform = `rotate(${currentRotation}deg)`;
+        spinBtn.disabled = true;
+        document.getElementById('score-display').innerText = "";
+        setTimeout(() => {
+            spinBtn.disabled = false;
+            const actualRotation = currentRotation % 360;
+            const segments = drugData.length;
+            const index = Math.floor(((360 - actualRotation + 270) % 360) / (360 / segments));
+            selectedDrug = drugData[index];
+            document.getElementById('study-area').style.display = 'block';
+            document.getElementById('drugName').innerText = selectedDrug.name.toUpperCase();
+            setMode('learn');
+            document.getElementById('study-area').scrollIntoView({ behavior: 'smooth' });
+        }, 4000);
+    }
+
+    function resetAndSpin() {
+        document.getElementById('study-area').style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(spinWheel, 500);
+    }
+
+    function setMode(mode) {
+        document.getElementById('btn-learn').classList.toggle('active', mode === 'learn');
+        document.getElementById('btn-test').classList.toggle('active', mode === 'test');
+        document.getElementById('score-display').innerText = "";
+        if (mode === 'learn') { currentCardIndex = 0; renderFlashcard(); } 
+        else { renderTest(); }
+    }
+
+    function renderFlashcard() {
+        const category = categories[currentCardIndex];
+        const displayLabel = category.replace(/([A-Z])/g, ' $1').trim();
+        document.getElementById('display-fields').innerHTML = `
+            <div id="flashcard" onclick="revealCard()">
+                <div class="label">${displayLabel}</div>
+                <div id="card-text" style="font-size: 2.1rem; margin-top:15px; color: var(--emt-blue); font-style: italic;">[ CLICK TO REVEAL ]</div>
+            </div>
+            <div style="display:flex; justify-content: space-between; margin-top:15px;">
+                <button onclick="changeCard(-1)" style="padding:8px 15px; background:#444;">&larr;</button>
+                <span style="font-weight:bold; color:var(--emt-yellow); padding-top:10px;">CARD ${currentCardIndex + 1} / ${categories.length}</span>
+                <button onclick="changeCard(1)" style="padding:8px 15px; background:#444;">&rarr;</button>
+            </div>
+        `;
+    }
+
+    function revealCard() {
+        const cardText = document.getElementById('card-text');
+        cardText.innerText = selectedDrug[categories[currentCardIndex]];
+        cardText.style.color = "white";
+        cardText.style.fontStyle = "normal";
+    }
+
+    function changeCard(dir) {
+        currentCardIndex = (currentCardIndex + dir + categories.length) % categories.length;
+        renderFlashcard();
+    }
+
+    function renderTest() {
+        let html = '<div style="margin-top:20px;">';
+        categories.forEach(f => {
+            const displayLabel = f.replace(/([A-Z])/g, ' $1').trim();
+            html += `<div class="data-row">
+                        <div class="label">${displayLabel}</div>
+                        <input type="text" autocomplete="off" placeholder="..." id="input-${f}">
+                     </div>`;
+        });
+        html += `<button onclick="checkAnswers()" style="width:100%; margin-top:15px; background: var(--emt-yellow); color:black;">SCORE ATTEMPT</button></div>`;
+        document.getElementById('display-fields').innerHTML = html;
+    }
+
+    function checkAnswers() {
+        let correctCount = 0;
+        categories.forEach(f => {
+            const input = document.getElementById(`input-${f}`);
+            const userVal = input.value.toLowerCase().trim();
+            const correctVal = selectedDrug[f].toLowerCase();
+            const keywords = correctVal.split(/[\s,/-]+/).filter(w => w.length > 3);
+            const isCorrect = keywords.some(k => userVal.includes(k)) || (userVal.length > 3 && correctVal.includes(userVal));
+            input.style.background = isCorrect ? "#1b331b" : "#331b1b";
+            input.value = (isCorrect ? "✓ " : "✗ ") + selectedDrug[f];
+            if(isCorrect) correctCount++;
+        });
+        document.getElementById('score-display').innerText = `RESULT: ${correctCount} / ${categories.length} CATEGORIES MASTERED`;
+    }
+
+    drawWheel();
+</script>
+</body>
+</html>
