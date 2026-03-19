@@ -10,6 +10,7 @@
             --card-bg: #1e1e1e;
             --emt-yellow: #ffcc00;
             --emt-blue: #007bff;
+            --emt-green: #28a745;
             --text-main: #e0e0e0;
             --danger: #ff4444;
         }
@@ -34,10 +35,38 @@
         }
 
         .wheel-container { position: relative; margin: 20px 0; }
-        canvas { border: 5px solid var(--emt-yellow); border-radius: 50%; box-shadow: 0 0 20px rgba(255, 204, 0, 0.2); }
+        canvas { border: 5px solid var(--emt-yellow); border-radius: 50%; box-shadow: 0 0 20px rgba(255, 204, 0, 0.2); transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1); }
         #pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid var(--danger); z-index: 10; }
 
-        .controls { text-align: center; margin-bottom: 20px; }
+        .controls { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            align-items: center; 
+        }
+
+        .selection-group {
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        select {
+            background: #000;
+            color: white;
+            border: 1px solid var(--emt-blue);
+            padding: 10px;
+            width: 100%;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+        }
         
         button { 
             background: var(--emt-blue); 
@@ -68,11 +97,12 @@
         .mode-btn { flex: 1; background: #333; }
         .mode-btn.active { background: var(--emt-yellow) !important; color: black !important; }
 
-        #flashcard { background: #252525; border: 2px solid var(--emt-blue); border-radius: 10px; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; text-align: center; padding: 25px; transition: 0.3s; margin-top: 20px; }
+        #flashcard { background: #252525; border: 2px solid var(--emt-blue); border-radius: 10px; min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; text-align: center; padding: 25px; transition: 0.2s; margin-top: 20px; user-select: none; overflow-y: auto; max-height: 400px; }
+        #flashcard:active { transform: scale(0.98); }
         
         .data-row { margin: 15px 0; border-bottom: 1px solid #333; padding-bottom: 8px; }
-        .label { color: var(--emt-yellow); font-weight: bold; font-size: 1.75rem; text-transform: uppercase; letter-spacing: 1px; }
-        input { width: 100%; background: #000; border: 1px solid #444; color: white; padding: 10px; margin-top: 5px; box-sizing: border-box; border-radius: 4px; }
+        .label { color: var(--emt-yellow); font-weight: bold; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 1px; }
+        input { width: 100%; background: #000; border: 1px solid #444; color: white; padding: 10px; margin-top: 5px; box-sizing: border-box; border-radius: 4px; font-size: 0.95rem; }
         
         #score-display { font-weight: bold; margin-top: 15px; text-align: center; color: var(--emt-yellow); }
         
@@ -80,11 +110,59 @@
             margin-top: 25px; 
             display: flex; 
             justify-content: center; 
+            flex-wrap: wrap;
             gap: 15px; 
             border-top: 1px solid #444; 
             padding-top: 20px; 
         }
         .secondary-btn { background: #444; font-size: 0.8rem; }
+        .divider { color: #666; font-size: 0.8rem; font-weight: bold; }
+
+        .mastery-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .mastery-toggle input { width: auto; margin: 0; cursor: pointer; transform: scale(1.5); }
+        
+        .card-list {
+            text-align: left;
+            display: inline-block;
+            margin: 15px 0 0 0;
+            padding-left: 20px;
+            line-height: 1.5;
+        }
+        .keyword-highlight {
+            color: var(--emt-yellow);
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .hint-text {
+            font-size: 0.85rem;
+            color: #888;
+            font-style: italic;
+            margin-top: 4px;
+            display: block;
+            word-wrap: break-word;
+        }
+        .test-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .hint-btn {
+            padding: 2px 8px; 
+            font-size: 0.7rem; 
+            background: #333; 
+            border: 1px solid #555;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -101,10 +179,23 @@
     </div>
 
     <div class="controls">
-        <button id="spinBtn" onclick="spinWheel()">Spin for Medication</button>
+        <button id="spinBtn" onclick="spinWheel()">Spin for Random Medication</button>
+        
+        <div class="divider">— OR —</div>
+
+        <div class="selection-group">
+            <select id="drugSelector" onchange="selectDrug(this.value)">
+                <option value="" disabled selected>Select a specific drug...</option>
+            </select>
+        </div>
     </div>
 
     <div id="study-area">
+        <div class="mastery-toggle">
+            <input type="checkbox" id="masteredCheck" onchange="toggleMastery()">
+            <label for="masteredCheck" style="font-weight: bold;">MARK AS MASTERED</label>
+        </div>
+
         <h2 id="drugName" style="color: var(--emt-yellow); margin-top:0; text-align: center; letter-spacing: 2px;"></h2>
         
         <div class="mode-selection">
@@ -135,23 +226,35 @@
         { name: "Ibuprofen", class: "NSAID", description: "Analgesic/Antipyretic; inhibits platelet aggregation", indications: "Fever, minor/moderate pain", contraindications: "NSAID allergy, recent GI bleed, renal insufficiency, & patients currently taking anticoagulants", precautions: "Hypertension, cardiac decompensation", sideEffects: "Rash, tinnitus, headaches, dizziness, drowsiness, abdominal pain, nausea/vomiting, diarrhea, constipation, and heart burn. Can increase bleeding due to reducing clotting ability", dose: "Adult: 400-800mg PO; Ped: 10mg/kg PO", ImportantInfo: "None" },
         { name: "Naloxone", class: "Narcotic antagonist", description: "Blocks the effects of both natural and synthetic narcotics, reversing repiratory depression and altered mental status", indications: "Narcotic (opiate) and synthetic narcotic overdose patient, unconscious/unresponsive patient with unknown etiology", contraindications: "Hypersensitivity, non-narcotic induced altered mental status, non-narcotic respiratory depression", precautions: "Medication half-life is sometimes shorter that the half-life of the opiate/narcotic taken, continue to monitor the Pt because they may need another dose. Pt may wake up anxious or aggressive and can projectile vomit.", sideEffects: "Abrupt reversal of narcotic depression may result in nausea, vomiting, sweating, tachycardia, increased blood pressure, tremors, seizures, and cardiac arrest.", dose: "Adult: 0.4-2mg IN; Ped: 0.1mg/kg IN, repeat in 4 minutes if no effect, max dose 2mg", ImportantInfo: "EMT admin is limited to intra-nasal route ONLY." },
         { name: "Nitroglycerin", class: "Nitrate", description: "Vasodilates (relaxes) blood vessels, which lessens heart workload and allows for more blood to circulate to the heart's blood vessels", indications: "Chest pain associated with Angina or Acute Myocardial Infarction", contraindications: "Hypotension (SBP < 100), ED meds within last 24 hours, hypersensitivity, severe anemia, trauma, increased ICP, glaucoma, shock", precautions: "Nitroglycerin can lose potency when exposed to light or air. Monitor vital signs closely; can cause severe hypotension", sideEffects: "Headache, hypotension, diaphoresis, flushed skin, palpitations", dose: "0.4mg SL every 5 mins (max 3 doses)", ImportantInfo: "SBP must be above 100mmHg, must have prescription, no ED meds withing last 24hrs" },
-        { name: "Nitrous Oxide", class: "Analgesic", description: "Odorless, colorless, non-flammable gas. Effect is through non-competitive NMDA receptor inhibition of the central nervous system", indications: "Acute pain management", contraindications: "Hyoersensitivity, Bowel obstruction, hypotension, pneumothorax, pregnancy, significant respiratory compromise, increased intracranial pressure, pulmonary hypertension, impaired consciousness", precautions: "Monitor for proper ventilation if used for long periods of time", sideEffects: "Dizziness, headache, nausea, blurred vision, hypotension", dose: "50:50 mixture self-administered", ImportantInfo: "Should not be used if in the vicinity of pregnant patient or provider during the first trimester." },
+        { name: "Nitrous Oxide", class: "Analgesic", description: "Odorless, colorless, non-flammable gas. Effect is through non-competitive NMDA receptor inhibition of the central nervous system", indications: "Acute pain management", contraindications: "Hypersensitivity, Bowel obstruction, hypotension, pneumothorax, pregnancy, significant respiratory compromise, increased intracranial pressure, pulmonary hypertension, impaired consciousness", precautions: "Monitor for proper ventilation if used for long periods of time", sideEffects: "Dizziness, headache, nausea, blurred vision, hypotension", dose: "50:50 mixture self-administered", ImportantInfo: "Should not be used if in the vicinity of pregnant patient or provider during the first trimester." },
         { name: "Oxygen", class: "Medical gas", description: "Odorless, colorless, tasteless gas", indications: "Hypoxia, anticipated hypoxia, any patient with a need to improve respiratory efficiency", contraindications: "COPD this is not hypoxic and used for a prolonged period of time", precautions: "Supports combustion; Do not drop, throw, or cause damage to tank", sideEffects: "Dry oxygen can irritate mucous membranes", dose: "NC: 1-6Lpm; NRB: 10-15Lpm; BVM: 15Lpm; CPAP: 5-25cmH2O", ImportantInfo: "None" },
         { name: "Oxymetazoline", class: "Sympathomimetic, Vasoconstrictor", description: "None", indications: "Uncontrolled Epistaxis, nasal intubation", contraindications: "Significant hypertension", precautions: "None", sideEffects: "Sneezing, burning sensation, stinging sensation, dryness, irritation in the nostril(s), headache, anxiety", dose: "Adult: 2 sprays; Ped: 1-2 sprays", ImportantInfo: "None" },
         { name: "Pralidoxime", class: "Cholinesterase reactivator", description: "Restores neuromuscular transmission by reactivating the cholinesterase enzyme. Used for SEVERE organophosphate poisoning", indications: "Organophosphate or carbamate poisoning", contraindications: "Hypersensitivity", precautions: "Rapid administration may result in tachycardia, laryngospasm and muscle rigidity. Excited or manic behavior may be noted after regaining consciousness. Caution if myasthenia gravis or renal failure history", sideEffects: "Blurred/double vision, difficulty focusing vision, dizziness, tachycardia, Hypertension, muscle weakness/stiffness, difficulty speaking, difficulty breathing, tachypnea", dose: "Adult: One auto-injector IM; PED: 1 ped auto-injector per med control", ImportantInfo: "EMS personnel may self-administer and/or administer to patients. Comes as a kit or mixed with atropine" }
     ];
 
+    const highAlertKeywords = ["Hypotension", "Hypertension", "Tachycardia", "Hypoglycemia", "Respiratory", "Pediatric", "Contraindicated", "Anaphylaxis", "Cardiac", "Bradycardia", "Pregnancy", "Children", "Elderly"];
+
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const spinBtn = document.getElementById('spinBtn');
+    const drugSelector = document.getElementById('drugSelector');
     let currentRotation = 0;
     let selectedDrug = null;
     let currentCardIndex = 0;
+    let masteredDrugs = []; 
     const categories = ['class', 'description', 'indications', 'contraindications', 'precautions', 'sideEffects', 'dose', 'ImportantInfo'];
 
-    function goToHome() {
-        window.location.href = "hub.html"; 
+    function initSelector() {
+        const sorted = [...drugData].sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(drug => {
+            let opt = document.createElement('option');
+            opt.value = drug.name;
+            opt.innerHTML = drug.name;
+            drugSelector.appendChild(opt);
+        });
     }
+
+    function goToHome() { window.location.href = "hub.html"; }
 
     function drawWheel() {
         const segments = drugData.length;
@@ -159,44 +262,76 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drugData.forEach((drug, i) => {
             ctx.beginPath();
-            ctx.fillStyle = i % 2 === 0 ? "#1a1a1a" : "#2a2a2a";
+            const isMastered = masteredDrugs.includes(drug.name);
+            if (isMastered) {
+                ctx.fillStyle = "#1b4d29"; 
+            } else {
+                ctx.fillStyle = i % 2 === 0 ? "#1a1a1a" : "#2a2a2a";
+            }
             ctx.moveTo(225, 225);
             ctx.arc(225, 225, 220, i * angle, (i + 1) * angle);
             ctx.fill();
-            ctx.strokeStyle = "#444";
+            ctx.strokeStyle = isMastered ? "var(--emt-green)" : "#444";
+            ctx.lineWidth = 2;
             ctx.stroke();
             ctx.save();
             ctx.translate(225, 225);
             ctx.rotate(i * angle + angle / 2);
             ctx.fillStyle = "white";
-            ctx.font = "bold 14px Arial"; // Increased font size for better readability
-            ctx.fillText(drug.name, 85, 5); // Slightly adjusted offset for larger text
+            ctx.font = "bold 14px Arial";
+            ctx.fillText(drug.name, 85, 5);
             ctx.restore();
         });
+    }
+
+    function selectDrug(name) {
+        selectedDrug = drugData.find(d => d.name === name);
+        if (selectedDrug) {
+            updateStudyArea();
+        }
     }
 
     function spinWheel() {
         const extraSpins = 5 + Math.random() * 5;
         currentRotation += extraSpins * 360;
-        canvas.style.transition = "transform 4s cubic-bezier(0.15, 0, 0.15, 1)";
         canvas.style.transform = `rotate(${currentRotation}deg)`;
         spinBtn.disabled = true;
+        drugSelector.disabled = true;
         document.getElementById('score-display').innerText = "";
+        
         setTimeout(() => {
             spinBtn.disabled = false;
+            drugSelector.disabled = false;
             const actualRotation = currentRotation % 360;
             const segments = drugData.length;
             const index = Math.floor(((360 - actualRotation + 270) % 360) / (360 / segments));
             selectedDrug = drugData[index];
-            document.getElementById('study-area').style.display = 'block';
-            document.getElementById('drugName').innerText = selectedDrug.name.toUpperCase();
-            setMode('learn');
-            document.getElementById('study-area').scrollIntoView({ behavior: 'smooth' });
+            drugSelector.value = selectedDrug.name;
+            updateStudyArea();
         }, 4000);
+    }
+
+    function updateStudyArea() {
+        document.getElementById('study-area').style.display = 'block';
+        document.getElementById('drugName').innerText = selectedDrug.name.toUpperCase();
+        document.getElementById('masteredCheck').checked = masteredDrugs.includes(selectedDrug.name);
+        setMode('learn');
+        document.getElementById('study-area').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function toggleMastery() {
+        const isChecked = document.getElementById('masteredCheck').checked;
+        if (isChecked) {
+            if (!masteredDrugs.includes(selectedDrug.name)) masteredDrugs.push(selectedDrug.name);
+        } else {
+            masteredDrugs = masteredDrugs.filter(name => name !== selectedDrug.name);
+        }
+        drawWheel();
     }
 
     function resetAndSpin() {
         document.getElementById('study-area').style.display = 'none';
+        drugSelector.selectedIndex = 0;
         window.scrollTo({ top: 0, behavior: 'smooth' });
         setTimeout(spinWheel, 500);
     }
@@ -209,13 +344,39 @@
         else { renderTest(); }
     }
 
+    function formatDescription(text) {
+        let highlighted = text;
+        highAlertKeywords.forEach(word => {
+            const regex = new RegExp(`(${word})`, "gi");
+            highlighted = highlighted.replace(regex, `<span class="keyword-highlight">$1</span>`);
+        });
+
+        if (text.length < 50 && !text.includes(';') && !text.includes(',')) return highlighted;
+
+        let items = text.split(/;|\.(?!\d)|(?<=,)\s(?=[A-Z|a-z])/);
+        items = items.map(i => i.trim()).filter(i => i.length > 1);
+
+        if (items.length > 1) {
+            const bulletList = items.map(item => {
+                let hItem = item;
+                highAlertKeywords.forEach(word => {
+                    const regex = new RegExp(`(${word})`, "gi");
+                    hItem = hItem.replace(regex, `<span class="keyword-highlight">$1</span>`);
+                });
+                return `<li>${hItem}</li>`;
+            }).join('');
+            return `<ul class="card-list">${bulletList}</ul>`;
+        }
+        return highlighted;
+    }
+
     function renderFlashcard() {
         const category = categories[currentCardIndex];
         const displayLabel = category.replace(/([A-Z])/g, ' $1').trim();
         document.getElementById('display-fields').innerHTML = `
-            <div id="flashcard" onclick="revealCard()">
-                <div class="label">${displayLabel}</div>
-                <div id="card-text" style="font-size: 2.1rem; margin-top:15px; color: var(--emt-blue); font-style: italic;">[ CLICK TO REVEAL ]</div>
+            <div id="flashcard" onclick="toggleCard()">
+                <div class="label" style="margin-bottom:10px;">${displayLabel}</div>
+                <div id="card-text" data-hidden="true" style="font-size: 1.8rem; color: var(--emt-blue); font-style: italic;">[ CLICK TO REVEAL ]</div>
             </div>
             <div style="display:flex; justify-content: space-between; margin-top:15px;">
                 <button onclick="changeCard(-1)" style="padding:8px 15px; background:#444;">&larr;</button>
@@ -225,11 +386,23 @@
         `;
     }
 
-    function revealCard() {
+    function toggleCard() {
         const cardText = document.getElementById('card-text');
-        cardText.innerText = selectedDrug[categories[currentCardIndex]];
-        cardText.style.color = "white";
-        cardText.style.fontStyle = "normal";
+        const isHidden = cardText.getAttribute('data-hidden') === 'true';
+        if (isHidden) {
+            const rawText = selectedDrug[categories[currentCardIndex]];
+            cardText.innerHTML = formatDescription(rawText);
+            cardText.style.color = "white";
+            cardText.style.fontStyle = "normal";
+            cardText.style.fontSize = rawText.length > 120 ? "1.1rem" : (rawText.length > 60 ? "1.4rem" : "1.8rem");
+            cardText.setAttribute('data-hidden', 'false');
+        } else {
+            cardText.innerText = "[ CLICK TO REVEAL ]";
+            cardText.style.color = "var(--emt-blue)";
+            cardText.style.fontStyle = "italic";
+            cardText.style.fontSize = "1.8rem";
+            cardText.setAttribute('data-hidden', 'true');
+        }
     }
 
     function changeCard(dir) {
@@ -242,29 +415,81 @@
         categories.forEach(f => {
             const displayLabel = f.replace(/([A-Z])/g, ' $1').trim();
             html += `<div class="data-row">
-                        <div class="label">${displayLabel}</div>
-                        <input type="text" autocomplete="off" placeholder="..." id="input-${f}">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="label" style="font-size:1.1rem;">${displayLabel}</div>
+                            <button class="hint-btn" onclick="provideHint('${f}')">HINT</button>
+                        </div>
+                        <input type="text" autocomplete="off" placeholder="Answer here..." id="input-${f}">
+                        <span id="hint-${f}" class="hint-text"></span>
                      </div>`;
         });
-        html += `<button onclick="checkAnswers()" style="width:100%; margin-top:15px; background: var(--emt-yellow); color:black;">SCORE ATTEMPT</button></div>`;
+        html += `<div class="test-actions">
+                    <button onclick="checkAnswers()" style="flex:2; background: var(--emt-yellow); color:black;">SCORE ATTEMPT</button>
+                    <button onclick="renderTest()" style="flex:1; background: #444;">RESET</button>
+                 </div></div>`;
         document.getElementById('display-fields').innerHTML = html;
     }
 
+    function provideHint(field) {
+        const correctVal = selectedDrug[field];
+        const keywords = [...new Set(correctVal.split(/[\s,./()]+/).filter(w => w.length > 4))];
+        if (keywords.length === 0) {
+            document.getElementById(`hint-${field}`).innerText = "No hints - keep it brief.";
+            return;
+        }
+        const hints = keywords.map(w => w[0].toUpperCase() + "_".repeat(w.length - 1));
+        document.getElementById(`hint-${field}`).innerText = "Hint: " + hints.join(", ");
+    }
+
+    // --- UPDATED SCORE LOGIC: REVEAL ANSWERS ---
     function checkAnswers() {
         let correctCount = 0;
         categories.forEach(f => {
             const input = document.getElementById(`input-${f}`);
-            const userVal = input.value.toLowerCase().trim();
-            const correctVal = selectedDrug[f].toLowerCase();
-            const keywords = correctVal.split(/[\s,/-]+/).filter(w => w.length > 3);
-            const isCorrect = keywords.some(k => userVal.includes(k)) || (userVal.length > 3 && correctVal.includes(userVal));
+            const hintSpan = document.getElementById(`hint-${f}`);
+            const userVal = input.value.trim();
+            const correctVal = selectedDrug[f];
+            
+            // Medical logic matching
+            const targetKeywords = [...new Set(correctVal.toLowerCase().split(/[\s,./()]+/).filter(w => w.length > 4))];
+            let isCorrect = false;
+
+            if (targetKeywords.length === 0) {
+                isCorrect = userVal.toLowerCase() === correctVal.toLowerCase() || (userVal.length > 2 && correctVal.toLowerCase().includes(userVal.toLowerCase()));
+            } else {
+                const matches = targetKeywords.filter(k => userVal.toLowerCase().includes(k));
+                const threshold = (f === 'contraindications' || f === 'dose' || f === 'indications') ? 0.7 : 0.5;
+                isCorrect = (matches.length / targetKeywords.length) >= threshold;
+            }
+
+            // Update UI to show comparison
             input.style.background = isCorrect ? "#1b331b" : "#331b1b";
-            input.value = (isCorrect ? "✓ " : "✗ ") + selectedDrug[f];
-            if(isCorrect) correctCount++;
+            input.value = (isCorrect ? "✓ " : "✗ ") + userVal;
+            
+            if (isCorrect) {
+                hintSpan.innerText = "CORRECT: " + correctVal;
+                hintSpan.style.color = "var(--emt-green)";
+                correctCount++;
+            } else {
+                hintSpan.innerText = "SHOULD BE: " + correctVal;
+                hintSpan.style.color = "var(--danger)";
+            }
         });
-        document.getElementById('score-display').innerText = `RESULT: ${correctCount} / ${categories.length} CATEGORIES MASTERED`;
+
+        const scorePercent = Math.round((correctCount / categories.length) * 100);
+        document.getElementById('score-display').innerHTML = `
+            <div style="font-size: 1.3rem; margin-top:15px; color: var(--emt-yellow)">
+                SCORE: ${correctCount}/${categories.length} CATEGORIES MATCHED
+            </div>
+        `;
+
+        if (correctCount === categories.length) {
+            document.getElementById('masteredCheck').checked = true;
+            toggleMastery();
+        }
     }
 
+    initSelector();
     drawWheel();
 </script>
 </body>
